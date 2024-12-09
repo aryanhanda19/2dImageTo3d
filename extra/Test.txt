@@ -1,0 +1,291 @@
+<?php
+/**
+ * Plugin Name: WooCommerce 3D Model Converter
+ * Description: Adds a "Convert to 3D Model" feature in the WooCommerce product edit screen.
+ * Version: 1.0.1
+ * Author: Your Name
+ */
+
+if (!defined('ABSPATH')) exit; // Exit if accessed directly
+
+// Enqueue scripts and styles for the admin panel
+function wc_3d_model_converter_admin_enqueue($hook) {
+    global $post;
+    if (($hook === 'post.php' || $hook === 'post-new.php') && $post->post_type === 'product') {
+        wp_enqueue_script('wc-3d-model-converter', plugin_dir_url(__FILE__) . 'admin.js', ['jquery'], '1.0', true);
+        wp_enqueue_style('wc_3d_model_converter-style', plugin_dir_url(__FILE__) . 'admin.css', [], '1.0');
+
+        wp_localize_script('wc-3d-model-converter', 'wc_3d_model_converter', [
+            'ajax_url' => admin_url('admin-ajax.php'),
+            'nonce' => wp_create_nonce('wc_3d_model_converter_nonce'),
+        ]);
+    }
+}
+add_action('admin_enqueue_scripts', 'wc_3d_model_converter_admin_enqueue');
+
+// Add metabox in the WooCommerce product edit screen
+function wc_3d_model_converter_add_metabox() {
+    add_meta_box(
+        'wc_3d_model_converter',
+        'Convert to 3D Model',
+        'wc_3d_model_converter_metabox_content',
+        'product',
+        'normal',
+        'high'
+    );
+}
+add_action('add_meta_boxes', 'wc_3d_model_converter_add_metabox');
+
+// Metabox content
+function wc_3d_model_converter_metabox_content($post) {
+    $product_id = $post->ID;
+    $conversion_status = get_post_meta($product_id, '_3d_conversion_status', true);
+    $model_url = get_post_meta($product_id, '_3d_model_url', true);
+
+    echo '<div id="wc-3d-model-converter">';
+    echo '<button id="convert-to-3d-model" class="button button-primary" data-product-id="' . esc_attr($product_id) . '">Convert to 3D Model</button>';
+
+    // Display the "View 3D Model" button only if the conversion is complete
+    if ($conversion_status === 'SUCCEEDED' && $model_url) {
+        echo '<button id="view-3d-model" class="button button-secondary" data-model-url="' . esc_attr($model_url) . '" style="margin-left: 10px;">View 3D Model</button>';
+    }
+
+    echo '<div id="conversion-status" style="margin-top: 10px; display:none;">
+            <div class="progress-bar-container">
+              <div class="progress-bar"></div>
+            </div>
+            <span class="conversion-status-message"></span>
+          </div>
+          <div id="model-viewer-section" style="margin-top: 20px;">
+          </div>';
+    echo '</div>';
+}
+
+
+// AJAX handler for downloading the model as a temporary file
+function wc_download_temp_model_ajax() {
+    check_ajax_referer('wc_3d_model_converter_nonce', 'security');
+
+    $product_id = intval($_POST['product_id']);
+    $model_url = get_post_meta($product_id, '_3d_model_url', true);
+
+    if (!$model_url) {
+        error_log("Model URL not found for product ID: $product_id.");
+        wp_send_json_error('Model URL not found.');
+    }
+
+    // Define the temporary directory and ensure it exists
+    $temp_dir = wp_upload_dir()['basedir'] . '/temp';
+    if (!file_exists($temp_dir)) {
+        wp_mkdir_p($temp_dir);
+    }
+
+    // Get file extension and prepare filename
+    $model_extension = pathinfo($model_url, PATHINFO_EXTENSION);
+    $model_filename = 'temp_model_' . $product_id . '.' . $model_extension;
+    $temp_model_path = $temp_dir . '/' . $model_filename;
+
+    // Download the model file
+    $response = wp_remote_get($model_url);
+    if (is_wp_error($response)) {
+        error_log("Error downloading model from $model_url.");
+        wp_send_json_error('Error downloading model.');
+    }
+
+    $file_content = wp_remote_retrieve_body($response);
+    if (empty($file_content)) {
+        error_log("Empty file content for model at $model_url.");
+        wp_send_json_error('No content found in the model file.');
+    }
+
+    // Save file content to temp path
+    file_put_contents($temp_model_path, $file_content);
+
+    // Return the temporary file URL
+    $temp_model_url = wp_upload_dir()['baseurl'] . '/temp/' . $model_filename;
+    wp_send_json_success(['temp_model_url' => $temp_model_url]);
+}
+add_action('wp_ajax_wc_download_temp_model', 'wc_download_temp_model_ajax');
+
+// AJAX handler for initiating 3D conversion
+function wc_3d_model_converter_ajax() {
+    error_log("Received AJAX request: " . print_r($_POST, true));
+
+    check_ajax_referer('wc_3d_model_converter_nonce', 'security');
+
+    $product_id = intval($_POST['product_id']);
+    if (!$product_id || get_post_status($product_id) !== 'publish') {
+        error_log("Invalid or unpublished product.");
+        wp_send_json_error('Invalid or unpublished product.');
+    }
+
+    $thumbnail_id = get_post_thumbnail_id($product_id);
+    if (!$thumbnail_id) {
+        error_log("Product image not found for product ID: $product_id.");
+        wp_send_json_error('Product image not found.');
+    }
+
+    $image_path = get_attached_file($thumbnail_id);
+    $imgbb_url = wc_upload_to_imgbb($image_path);
+    if (!$imgbb_url) {
+        error_log("Failed to upload image to ImgBB for product ID: $product_id.");
+        wp_send_json_error('Failed to upload image to ImgBB.');
+    }
+
+    $conversion_response = wc_3d_converter_api_call($imgbb_url);
+    if (is_array($conversion_response) && isset($conversion_response['result'])) {
+        $task_id = $conversion_response['result']; // Retrieve the task ID
+        update_post_meta($product_id, '_3d_conversion_status', 'in_progress');
+        update_post_meta($product_id, '_3d_conversion_task_id', $task_id); // Store task ID for status checks
+    
+        error_log("Stored Task ID: " . $task_id); // Log the stored Task ID
+    
+        wp_send_json_success(['message' => 'Conversion started. Please wait...', 'status' => 'in_progress']);
+    } else {
+        error_log("Unexpected 3D API response format: " . print_r($conversion_response, true));
+        wp_send_json_error('Error initiating conversion.');
+    }
+}
+add_action('wp_ajax_wc_3d_model_converter', 'wc_3d_model_converter_ajax');
+
+// Check conversion status via AJAX
+// Check conversion status via AJAX
+function wc_check_conversion_status_ajax() {
+    check_ajax_referer('wc_3d_model_converter_nonce', 'security');
+
+    $product_id = intval($_POST['product_id']);
+    $task_id = get_post_meta($product_id, '_3d_conversion_task_id', true);
+
+    if (!$task_id) {
+        error_log("Task ID not found for product ID: $product_id.");
+        wp_send_json_error('Task ID not found.');
+    }
+
+    $status_response = wc_check_conversion_status($task_id);
+
+    if (!$status_response) {
+        error_log("Error occurred while checking conversion status for Task ID: $task_id.");
+        wp_send_json_error('An error occurred while checking conversion status.');
+    }
+
+    // Log the status for debugging
+    error_log("Conversion status for Task ID: $task_id. Status: " . $status_response['status']);
+
+    if ($status_response['status'] === 'SUCCEEDED') {
+        $model_url = $status_response['model_urls']['glb'] ?? '';
+        update_post_meta($product_id, '_3d_model_url', $model_url);
+        update_post_meta($product_id, '_3d_conversion_status', 'SUCCEEDED');
+
+        wp_send_json_success([
+            'status' => 'SUCCEEDED',
+            'model_url' => $model_url,
+            'progress' => 100
+        ]);
+    } elseif ($status_response['status'] === 'IN_PROGRESS' || $status_response['status'] === 'PENDING') {
+        wp_send_json_success([
+            'status' => $status_response['status'],
+            'progress' => $status_response['progress'] ?? 0
+        ]);
+    } else {
+        update_post_meta($product_id, '_3d_conversion_status', 'FAILED');
+        error_log("Conversion failed for Task ID: $task_id. Status: " . $status_response['status']);
+        wp_send_json_error('Conversion failed or unknown status.');
+    }
+}
+
+
+// Upload image to ImgBB
+function wc_upload_to_imgbb($image_path) {
+    $api_key = '67098e2dbdf822fb2f5bcb43666c880b';
+    $api_url = 'https://api.imgbb.com/1/upload?key=' . $api_key;
+    $image_data = file_get_contents($image_path);
+    $base64_image = base64_encode($image_data);
+
+    $response = wp_remote_post($api_url, [
+        'body' => ['image' => $base64_image],
+    ]);
+
+    if (is_wp_error($response)) {
+        error_log("ImgBB API error: " . $response->get_error_message());
+        return false;
+    }
+    $response_body = json_decode(wp_remote_retrieve_body($response), true);
+    return $response_body['data']['url'] ?? false;
+}
+
+// 3D Conversion API call
+function wc_3d_converter_api_call($image_url) {
+    $api_url = 'https://api.meshy.ai/v1/image-to-3d';
+    $api_key = 'msy_KURXIszBloYd8iSkRapXRADAXb6iWPcCvAxb';
+
+    $response = wp_remote_post($api_url, [
+        'body' => json_encode([
+            'image_url' => $image_url,
+        ]),
+        'headers' => [
+            'Content-Type' => 'application/json',
+            'Authorization' => 'Bearer ' . $api_key,
+        ],
+    ]);
+
+    if (is_wp_error($response)) {
+        error_log("Error in 3D conversion API request: " . $response->get_error_message());
+        return false;
+    }
+
+    $body = wp_remote_retrieve_body($response);
+    error_log("3D API Response Body: " . $body);
+
+    $data = json_decode($body, true);
+    if (isset($data['result'])) {
+        return $data; // Return the full response containing the task ID
+    }
+
+    return false;
+}
+
+
+// Check 3D Conversion status
+function wc_check_conversion_status($task_id) {
+    $api_url = 'https://api.meshy.ai/v1/image-to-3d/' . $task_id;
+    $api_key = 'msy_SsYD2ko6J0yCQmz5dhVrdo7pil2oHhcr7DfL';
+
+    // Log the status check request for debugging
+    error_log("Checking conversion status for Task ID: $task_id");
+
+    // Send API request to check status
+    $response = wp_remote_get($api_url, [
+        'headers' => [
+            'Authorization' => 'Bearer ' . $api_key,
+            'Content-Type' => 'application/json',
+        ],
+    ]);
+
+    // Check for WP error in the API request
+    if (is_wp_error($response)) {
+        error_log("Error checking conversion status: " . $response->get_error_message());
+        return false; // Return false if there's an issue with the request
+    }
+
+    // Retrieve and log the response body
+    $body = wp_remote_retrieve_body($response);
+    error_log("Status check response body for Task ID $task_id: " . $body);
+
+    // Parse the JSON response
+    $data = json_decode($body, true);
+
+    // Check for errors in the JSON decoding
+    if (json_last_error() !== JSON_ERROR_NONE) {
+        error_log("Error decoding JSON response for Task ID $task_id: " . json_last_error_msg());
+        return false;
+    }
+
+    // Check if the response contains valid data
+    if (!isset($data['status'])) {
+        error_log("Invalid response structure for Task ID $task_id: " . print_r($data, true));
+        return false;
+    }
+
+    return $data;
+}
+

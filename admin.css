@@ -1,0 +1,241 @@
+General Styles
+#wc-3d-model-converter {
+    font-family: Arial, sans-serif;
+    background: #f9f9f9;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    margin-top: 20px;
+}
+
+/* Convert to 3D Button */
+#convert-btn {
+    padding: 10px 15px;
+    border-radius: 6px;
+    font-size: 14px;
+    cursor: pointer;
+    background: #6c757d; /* Same base color as "Generate Shortcode" */
+    color: #fff;
+    border: none;
+    transition: background 0.3s, transform 0.2s;
+}
+
+#convert-btn:hover {
+    background: #5a6268; /* Same hover effect as "Generate Shortcode" */
+    transform: translateY(-2px);
+}
+
+/* On click (Active) State */
+#convert-btn:active {
+    background: #5a6268; /* Matches "Generate Shortcode" hover state */
+    transform: translateY(0); /* Removes hover effect when clicked */
+}
+
+/* Button Section */
+.button-section {
+    display: flex;
+    align-items: center;
+    gap: 15px; /* Space between buttons */
+    margin-bottom: 20px;
+}
+
+.download-section {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 15px;
+}
+
+.download-dropdown {
+    display: none;
+}
+
+.button-section .button {
+    padding: 10px 15px;
+    border-radius: 6px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background 0.3s, transform 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 8px; /* Space between icon and text */
+}
+
+.button-section .button-primary {
+    background: #007cba; /* WooCommerce blue */
+    color: #fff;
+    border: none;
+}
+
+.button-section .button-primary:hover {
+    background: #005fa3;
+    transform: translateY(-2px);
+}
+
+.button-section .button {
+    background: #e1e1e1;
+    color: #333;
+    border: 1px solid #ccc;
+}
+
+.button-section .button:hover {
+    background: #d4d4d4;
+}
+
+/* Button Icons */
+.button .fa {
+    font-size: 16px; /* Adjust icon size */
+}
+
+/* Regenerate Model Button */
+#regenerate-model::before {
+    content: '\f021'; /* Font Awesome refresh icon */
+    font-family: "Font Awesome 5 Free";
+    font-weight: 900;
+}
+
+/* View 3D Button */
+#view-3d-btn::before {
+    content: '\f06e'; /* Font Awesome eye icon */
+    font-family: "Font Awesome 5 Free";
+    font-weight: 900;
+}
+
+/* Save Model Button */
+#save-model-btn::before {
+    content: '\f0c7'; /* Font Awesome save icon */
+    font-family: "Font Awesome 5 Free";
+    font-weight: 900;
+}
+
+/* Download Button */
+#download-model-btn::before {
+    content: '\f019'; /* Font Awesome download icon */
+    font-family: "Font Awesome 5 Free";
+    font-weight: 900;
+}
+
+/* Generate Shortcode Button */
+#generate-shortcode-btn::before {
+    content: '\f121'; /* Font Awesome code icon */
+    font-family: "Font Awesome 5 Free";
+    font-weight: 900;
+}
+
+/* Download Dropdown */
+/* This styles the dropdown for download options */
+.download-dropdown {
+    display: none; /* Hides the dropdown by default */
+    padding: 5px 10px; /* Dropdown size */
+    border: 1px solid #ccc; /* Border color */
+    border-radius: 6px; /* Rounded corners */
+    background: #fff; /* Dropdown background color */
+    font-size: 14px; /* Text size */
+    /* To make the dropdown visible, set display to 'block' in JavaScript */
+}
+
+
+/* Progress Bar */
+/* This styles the progress bar container */
+.progress-bar-container {
+    background: #eee; /* Background color of the progress bar container */
+    border-radius: 8px; /* Rounded corners */
+    border-style: solid; /* Border style */
+    border-color: rgb(180, 177, 177);
+    overflow: hidden; /* Ensures the bar doesn't overflow */
+    width: 100%; /* Full width */
+    height: 12px; /* Height of the progress bar */
+    margin-top: 15px; /* Space above the progress bar */
+}
+
+/* The actual progress inside the bar */
+.progress-bar {
+    background: #000000; /* Progress bar color */
+    width: 0%; /* Initial width (no progress) */
+    height: 100%; /* Fills the container vertically */
+    transition: width 0.5s ease-in-out; /* Smooth progress animation */
+}
+
+.conversion-status-message {
+    margin-top: 10px;
+    font-size: 14px;
+    font-weight: bold;
+    color: #333;
+}
+
+/* Shortcode Section */
+/* This is the section for displaying the shortcode */
+#shortcode-section {
+    margin-top: 20px; /* Space above the shortcode section */
+    text-align: right; /* Centers the content horizontally */
+}
+
+/* The button for generating shortcodes */
+#shortcode-section button {
+    background: #6c757d; /* Button background color */
+    color: #fff; /* Text color */
+    border: none; /* Removes border */
+    padding: 10px 15px; /* Button size */
+    border-radius: 6px; /* Rounded corners */
+    cursor: pointer; /* Shows pointer on hover */
+    transition: background 0.3s; /* Smooth background color change on hover */
+}
+
+#shortcode-section button:hover {
+    background: #5a6268; /* Darker gray on hover */
+}
+
+/* Shortcode output box */
+#shortcode-output {
+    margin-top: 10px; /* Space above the output */
+}
+
+#generated-shortcode {
+    width: 100%; /* Full width */
+    border: 1px solid #ccc; /* Border around the box */
+    border-radius: 6px; /* Rounded corners */
+    padding: 10px; /* Space inside the box */
+    font-size: 14px; /* Text size */
+    background: #f9f9f9; /* Background color */
+    resize: none; /* Prevents resizing */
+}
+/* Model Viewer */
+/* This is the section where the 3D model viewer is displayed */
+#model-viewer-section {
+    margin-top: 20px; /* Space above the model viewer */
+    text-align: center; /* Centers the content horizontally */
+}
+
+/* Styling for the model viewer box */
+#model-viewer {
+    border: 1px solid #ddd; /* Border around the model viewer */
+    border-radius: 8px; /* Rounded corners */
+    background: #f3f3f3; /* Background color */
+    width: 100%; /* Full width */
+    height: 400px; /* Fixed height */
+}
+
+#model-viewer[loaded] {
+    display: block; /* Ensures it's visible when loaded */
+}
+
+
+/* Responsive Design */
+/* Adjusts layout for devices with max-width of 768px */
+@media (max-width: 768px) {
+    .button-section {
+        flex-direction: column; /* Stacks buttons vertically */
+        gap: 15px; /* Space between buttons */
+    }
+
+    .button-section .left-section,
+    .button-section .right-section {
+        justify-content: center; /* Centers buttons */
+    }
+
+    #model-viewer {
+        height: 300px; /* Reduces model viewer height for smaller screens */
+    }
+}
+
