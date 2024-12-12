@@ -13,7 +13,7 @@ if (!defined('ABSPATH')) exit; // Exit if accessed directly
 define('PLUGIN_DIR_PATH', plugin_dir_path(__FILE__));  // Path to the plugin directory
 define('PLUGIN_URL', plugin_dir_url(__FILE__));        // URL to the plugin directory (useful for frontend)
 
-
+require_once( plugin_dir_path( __FILE__ ) . 'settings.php' );
 // Hook to display the 3D model on the product page
 add_action( 'woocommerce_single_product_summary', 'your_plugin_display_3d_model_button', 35 );
 
@@ -224,7 +224,9 @@ add_action('wp_ajax_wc_check_conversion_status', 'wc_check_conversion_status_aja
 
 // Upload image to ImgBB
 function wc_upload_to_imgbb($image_path) {
-    $api_key = '67098e2dbdf822fb2f5bcb43666c880b';
+    $options = get_option( 'wc_3d_model_converter_settings' );
+    $api_key = $options['imgbb_api_key'];
+    //$api_key = '67098e2dbdf822fb2f5bcb43666c880b';
     $api_url = 'https://api.imgbb.com/1/upload?key=' . $api_key;
     $image_data = file_get_contents($image_path);
     $base64_image = base64_encode($image_data);
@@ -243,8 +245,10 @@ function wc_upload_to_imgbb($image_path) {
 
 // 3D Conversion API call
 function wc_3d_converter_api_call($image_url) {
+    $options = get_option( 'wc_3d_model_converter_settings' );
+    $api_key = $options['meshy_api_key'];
     $api_url = 'https://api.meshy.ai/v1/image-to-3d';
-    $api_key = 'msy_k20kiYfFssOk5gbLCU48PMAB4Rhfo8HkvvZG'; // Replace with your actual API key
+    //$api_key = 'msy_k20kiYfFssOk5gbLCU48PMAB4Rhfo8HkvvZG'; // Replace with your actual API key
 
     // Modify the API call to include the format
     $response = wp_remote_post($api_url, [
@@ -265,19 +269,11 @@ function wc_3d_converter_api_call($image_url) {
 
     return json_decode(wp_remote_retrieve_body($response), true);
 }
-/* function wc_check_model_exists_ajax() {
-    check_ajax_referer('wc_3d_model_converter_nonce', 'security');
-    $product_id = intval($_POST['product_id']);
-    $model_url = get_post_meta($product_id, '_3d_model_url', true);
-    wp_send_json_success(['exists' => !empty($model_url)]);
-}
-add_action('wp_ajax_wc_check_model_exists', 'wc_check_model_exists_ajax'); */
-
-// Check 3D Conversion status
-// Declare the function first
 function wc_check_conversion_status($task_id) {
+    $options = get_option( 'wc_3d_model_converter_settings' );
+    $api_key = $options['meshy_api_key'];
     $api_url = 'https://api.meshy.ai/v1/image-to-3d/' . $task_id;
-    $api_key = 'msy_k20kiYfFssOk5gbLCU48PMAB4Rhfo8HkvvZG';
+    //$api_key = 'msy_k20kiYfFssOk5gbLCU48PMAB4Rhfo8HkvvZG';
 
     $response = wp_remote_get($api_url, [
         'headers' => [
